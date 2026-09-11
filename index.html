@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ρ | RL visualizer</title>
+    <meta
+      name="description"
+      content="Compare reinforcement learning updates on a finite reward distribution."
+    />
+    <meta name="theme-color" content="#faf9f6" />
+    <script src="theme.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ρ | RL visualizer" />
+    <meta
+      property="og:description"
+      content="Compare reinforcement learning updates on a finite reward distribution."
+    />
+    <meta
+      property="og:url"
+      content="https://ayushnangia.github.io/reward-lab/"
+    />
+    <meta
+      property="og:image"
+      content="https://ayushnangia.github.io/reward-lab/assets/rho-visualizer.png"
+    />
+    <meta
+      property="og:image:alt"
+      content="GRPO, PPO and TailRL changing the probabilities of a bell-shaped reward distribution in a finite categorical example."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="assets/favicon.svg?v=rho" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/katex/katex.min.css" />
+    <link rel="stylesheet" href="rho.css" />
+    <script src="assets/katex/katex.min.js" defer></script>
+    <script src="assets/katex/contrib/auto-render.min.js" defer></script>
+    <script src="core.js" defer></script>
+    <script src="config.js" defer></script>
+    <script src="content.js" defer></script>
+    <script src="algorithms.js" defer></script>
+    <script src="audio.js" defer></script>
+    <script src="visualizer.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="wordmark" href="#visualizer" aria-label="Rho home">ρ</a>
+      <nav aria-label="Main">
+        <a href="#visualizer" id="nav-visualizer" aria-current="page"
+          >Visualizer</a
+        ><a href="#algorithms" id="nav-algorithms">Algorithms</a>
+      </nav>
+      <a
+        class="github"
+        href="https://github.com/ayushnangia/reward-lab"
+        target="_blank"
+        rel="noreferrer"
+        >GitHub ↗</a
+      >
+      <label class="theme-control"
+        ><span class="sr-only">Appearance</span
+        ><select id="theme" aria-label="Appearance">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select></label
+      >
+    </header>
+    <main id="main" tabindex="-1">
+      <section id="visualizer">
+        <div class="page-intro">
+          <div>
+            <h1>Policy updates</h1>
+            <p>Select a starting distribution to compare algorithm updates.</p>
+          </div>
+        </div>
+        <div class="controls">
+          <div class="distribution-label">
+            <label for="preset">Starting distribution</label>
+            <div class="distribution-picker">
+              <select id="preset"></select>
+              <button
+                id="edit-distribution"
+                aria-expanded="false"
+                aria-controls="distribution-editor"
+              >
+                Edit shape
+              </button>
+            </div>
+          </div>
+          <div class="transport">
+            <button id="play" class="primary">▶ Play</button
+            ><button
+              id="previous"
+              title="Show the previous recorded update"
+              disabled
+            >
+              Previous step</button
+            ><button
+              id="step"
+              title="Show the next update, or compute one new update"
+            >
+              Next step</button
+            ><button id="reset">Reset</button>
+          </div>
+          <div class="speed-control">
+            <div class="speed-heading">
+              <label for="speed">Speed</label>
+              <button
+                id="speed-reset"
+                title="Reset playback speed to 1×"
+                aria-label="Reset playback speed to 1×"
+              >
+                <output id="speed-value">1×</output>
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M3 6a5 5 0 1 1 .2 4M3 2v4h4" />
+                </svg>
+              </button>
+            </div>
+            <div class="speed-rail">
+              <input
+                id="speed"
+                type="range"
+                min="0"
+                max="5"
+                step="1"
+                value="2"
+                aria-label="Playback speed"
+              />
+              <div class="speed-ticks" aria-hidden="true"></div>
+            </div>
+            <div
+              id="speed-stops"
+              role="group"
+              aria-label="Choose playback speed"
+            ></div>
+          </div>
+          <button
+            id="sound"
+            aria-pressed="false"
+            title="Hear the distribution: taller bars sound higher and louder, from reward 0 to 1"
+            aria-describedby="sound-key"
+          >
+            Sound off
+          </button>
+          <details id="advanced">
+            <summary>Advanced</summary>
+            <form id="settings" novalidate>
+              <div class="advanced-heading">
+                <h2>Experiment settings</h2>
+                <button type="button" id="close-advanced">Close</button>
+              </div>
+              <fieldset class="methods-field">
+                <legend>Compare algorithms</legend>
+                <div id="method-options"></div>
+              </fieldset>
+              <div class="settings-grid">
+                <label>Reward map<select id="transform"></select></label>
+                <label>Judge<select id="judge"></select></label>
+                <label
+                  >Samples per update<select id="n">
+                    <option>8</option>
+                    <option selected>32</option>
+                    <option>64</option>
+                  </select></label
+                >
+                <label
+                  >Learning rate<input
+                    id="lr"
+                    type="number"
+                    min="0.001"
+                    max="2"
+                    step="0.01"
+                    value="0.5"
+                /></label>
+                <label
+                  >Seed<input
+                    id="seed"
+                    type="number"
+                    min="0"
+                    max="4294967295"
+                    step="1"
+                    value="42"
+                /></label>
+                <label
+                  >Updates per run<select id="horizon">
+                    <option>25</option>
+                    <option selected>100</option>
+                    <option>300</option>
+                  </select></label
+                >
+                <label
+                  >k · PKPO and evaluation<select id="k">
+                    <option>1</option>
+                    <option selected>4</option>
+                    <option>8</option>
+                  </select></label
+                >
+              </div>
+              <div id="piecewise-settings" class="settings-grid" hidden>
+                <label
+                  >Tail starts at<input
+                    id="tailAt"
+                    type="number"
+                    min="0.1"
+                    max="0.9"
+                    step="0.05"
+                    value="0.7" /></label
+                ><label
+                  >Bulk slope<input
+                    id="bulkScale"
+                    type="number"
+                    min="0.01"
+                    max="5"
+                    step="0.1"
+                    value="0.4" /></label
+                ><label
+                  >Tail slope<input
+                    id="tailScale"
+                    type="number"
+                    min="0.01"
+                    max="10"
+                    step="0.1"
+                    value="2" /></label
+                ><label
+                  >Jump at tail<input
+                    id="jump"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value="0"
+                /></label>
+              </div>
+              <div id="power-settings" hidden>
+                <label
+                  ><span>Power \(\lambda\)</span
+                  ><input
+                    id="lambda"
+                    type="number"
+                    min="-2"
+                    max="3"
+                    step="0.1"
+                    value="0.5"
+                /></label>
+              </div>
+              <div class="map-preview">
+                <div id="map-preview"></div>
+                <p id="map-note" class="hint"></p>
+              </div>
+              <details class="optimizer-settings">
+                <summary>Optimizer settings</summary>
+                <div class="settings-grid">
+                  <label
+                    ><span>PPO / GRPO clip \(\epsilon\)</span
+                    ><input
+                      id="ppoClip"
+                      type="number"
+                      min="0.05"
+                      max="0.5"
+                      step="0.05"
+                      value="0.2" /></label
+                  ><label
+                    >PPO / GRPO epochs<input
+                      id="ppoEpochs"
+                      type="number"
+                      min="1"
+                      max="10"
+                      step="1"
+                      value="4" /></label
+                  ><label
+                    >TRPO KL budget<input
+                      id="trustKL"
+                      type="number"
+                      min="0.001"
+                      max="0.1"
+                      step="0.001"
+                      value="0.01" /></label
+                  ><label
+                    >A2C / PPO critic rate<input
+                      id="criticRate"
+                      type="number"
+                      min="0.01"
+                      max="1"
+                      step="0.01"
+                      value="0.1" /></label
+                  ><label
+                    >Initial support smoothing<input
+                      id="floor"
+                      title="Add this mass to every starting probability, then normalize. A value f makes an absent outcome’s probability f / (1 + 21f). Applied only at initialization."
+                      type="number"
+                      min="0"
+                      max="0.01"
+                      step="0.0001"
+                      value="0"
+                  /></label>
+                </div>
+              </details>
+              <p id="settings-error" role="alert" hidden></p>
+              <div class="form-actions">
+                <button type="submit" class="primary">Apply & reset</button
+                ><button type="button" id="defaults">Defaults</button
+                ><span>Changes start a new run.</span>
+              </div>
+            </form>
+          </details>
+        </div>
+        <section
+          id="distribution-editor"
+          aria-labelledby="distribution-title"
+          hidden
+        >
+          <div class="distribution-heading">
+            <h2 id="distribution-title">Edit starting distribution</h2>
+            <button id="clear-distribution">Clear</button>
+          </div>
+          <div id="shape-presets" aria-label="Starting shapes"></div>
+          <p id="draw-help" class="hint">
+            Drag across the bars to draw a shape. Heights are relative weights;
+            probabilities are normalized to sum to 100%.
+            <span id="draw-floor" hidden
+              >Initial support smoothing in Advanced also applies.</span
+            >
+          </p>
+          <p id="draw-keyboard" class="sr-only">
+            Use left and right arrows to select a reward. Use up and down arrows
+            to change its weight, Shift for larger changes, Home for zero and
+            End for maximum.
+          </p>
+          <div class="distribution-readout">
+            <span>Relative weight</span
+            ><output id="draw-reading" aria-live="polite"></output>
+          </div>
+          <div
+            id="distribution-draw"
+            role="group"
+            aria-label="Draw starting distribution"
+            aria-describedby="draw-help draw-keyboard"
+          ></div>
+          <div class="distribution-axis" aria-hidden="true">
+            <span>0</span><span>0.5</span><span>1</span>
+          </div>
+          <p class="distribution-axis-label">Reward</p>
+          <details id="paste-samples">
+            <summary>Paste samples</summary>
+            <label for="custom">Reward samples</label>
+            <textarea
+              id="custom"
+              rows="2"
+              placeholder="0.2, 0.2, 0.2, 0.6, 1"
+              aria-describedby="sample-help"
+            ></textarea>
+            <div class="sample-actions">
+              <p class="hint" id="sample-help">
+                Values from 0 to 1, binned to the nearest 0.05.
+              </p>
+              <button id="load-samples">Load samples</button>
+            </div>
+          </details>
+          <p id="distribution-error" role="alert" hidden></p>
+          <div class="form-actions">
+            <button id="apply-distribution" class="primary">
+              Use distribution
+            </button>
+            <button id="cancel-distribution">Cancel</button>
+            <span>Starts a new run.</span>
+          </div>
+        </section>
+        <section
+          id="sound-panel"
+          aria-label="Listen to the selected distribution"
+          hidden
+        >
+          <div class="sound-controls">
+            <span id="sound-method">GRPO</span>
+            <button id="listen-current">Listen</button>
+            <button id="listen-compare">Start → Current</button>
+            <label class="volume-control"
+              >Volume<input
+                id="volume"
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value="0.45"
+            /></label>
+          </div>
+          <p id="sound-key" class="hint" hidden></p>
+          <p id="sound-reading" role="status"></p>
+        </section>
+        <div class="reading-key">
+          <p>
+            <b>Height = probability.</b> Each bar is one possible outcome,
+            placed at its fixed reward.
+          </p>
+          <span><i></i> Start <i class="current-key"></i> Current</span>
+          <nav id="grid-pages" aria-label="Comparison charts" hidden>
+            <button id="previous-charts" aria-label="Previous charts">←</button
+            ><span id="chart-page" aria-live="polite"></span
+            ><button id="next-charts" aria-label="Next charts">→</button>
+          </nav>
+        </div>
+        <div id="comparison" class="comparison"></div>
+        <div class="timeline">
+          <span id="step-count">Update 0</span
+          ><input
+            id="replay"
+            aria-label="Replay completed updates"
+            type="range"
+            min="0"
+            max="0"
+            value="0"
+          /><span id="run-end">100</span>
+          <div class="phases" aria-label="Update stage">
+            <span data-phase="sample">Sample</span
+            ><span aria-hidden="true">→</span
+            ><span data-phase="weight">Weight</span
+            ><span aria-hidden="true">→</span
+            ><span data-phase="update">Update</span>
+          </div>
+        </div>
+        <p id="status" class="status" role="status">
+          Press Play or Next step to begin.
+        </p>
+        <div class="below-plot">
+          <p>
+            Finite categorical policies with 21 outcomes. These are
+            learning-rule demonstrations, not language-model training or a
+            ranking of algorithms. <a href="#algorithms">What is simplified?</a>
+          </p>
+          <div>
+            <button id="share">Copy setup link</button
+            ><button id="save-image">Save image</button>
+          </div>
+        </div>
+        <details id="inspector" class="inspector">
+          <summary>
+            Inside one update <span id="inspect-name">GRPO</span>
+          </summary>
+          <div class="inspector-content">
+            <p id="batch-summary"></p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Sample</th>
+                    <th>Original reward</th>
+                    <th>Judge score</th>
+                    <th>Training score</th>
+                    <th>Weight \(A_i\)</th>
+                  </tr>
+                </thead>
+                <tbody id="batch-rows"></tbody>
+              </table>
+            </div>
+            <p class="hint">
+              Select an algorithm’s chart to inspect its samples. Sound scans
+              its current probabilities from low to high reward. Taller bars
+              sound higher and louder; zero bars are silent. Speed changes the
+              timing. Pitch and loudness use the same scales across algorithms.
+            </p>
+          </div>
+        </details>
+      </section>
+      <section id="algorithms" hidden>
+        <div class="page-intro">
+          <div>
+            <h1>Algorithms</h1>
+          </div>
+        </div>
+        <div class="guide-layout">
+          <aside class="algorithm-nav" aria-label="Select an algorithm">
+            <label for="algorithm-select">Algorithm</label
+            ><select id="algorithm-select"></select>
+            <div id="algorithm-links"></div>
+          </aside>
+          <article id="algorithm-article"></article>
+        </div>
+      </section>
+    </main>
+    <template id="basics-template">
+      <h2>Policy-gradient basics</h2>
+      <p class="guide-lead">
+        A policy chooses actions. Rewards provide feedback for learning. Here,
+        each action stands for one complete answer.
+      </p>
+      <p>
+        This example is a bandit: one state, one decision per episode, and a
+        reward after that decision. None of the update rules below requires
+        normally distributed rewards.
+      </p>
+      <h3>Probabilities and rewards</h3>
+      <p>
+        A <strong>policy</strong>, written \(\pi\), assigns probabilities to
+        answers. Imagine three possible answers, each initially one-third
+        likely. A checker gives them scores of 0.2, 0.5 and 1.0. These scores
+        are called <strong>rewards</strong>.
+      </p>
+      <div
+        class="basics-answers"
+        aria-label="Three equally likely answers: A scores 0.2, B scores 0.5, C scores 1.0"
+      >
+        <div>
+          <span>Answer A</span><strong>33.3%</strong><small>reward 0.2</small>
+        </div>
+        <div>
+          <span>Answer B</span><strong>33.3%</strong><small>reward 0.5</small>
+        </div>
+        <div>
+          <span>Answer C</span><strong>33.3%</strong><small>reward 1.0</small>
+        </div>
+      </div>
+      <p>
+        The average reward is about 0.567. It weights each answer’s score by its
+        chance of appearing. Learning might raise C’s chance and lower A’s; the
+        original rewards stay fixed. On the Visualizer page, each bar is one
+        action at its original reward, so bar height is probability mass.
+      </p>
+      <h3>One learning iteration</h3>
+      <ol class="lesson-steps">
+        <li>
+          <strong>Sample.</strong> Draw answers from the current policy. A group
+          can include duplicates and can miss the best answer entirely.
+        </li>
+        <li>
+          <strong>Score.</strong> A verifier, a person, or a reward model
+          assigns a score. An optional reward map changes the training score,
+          such as squaring it.
+        </li>
+        <li>
+          <strong>Weight.</strong> The learning method turns scores into update
+          weights. An <strong>advantage</strong> usually compares reward with a
+          baseline: better or worse than expected.
+        </li>
+        <li>
+          <strong>Update.</strong> Combine the weights with gradients of the
+          sampled answers’ log probabilities. Change the policy parameters, then
+          draw a fresh group.
+        </li>
+      </ol>
+      <p>
+        A <strong>gradient</strong> describes how a small parameter change
+        affects a quantity. The model can compute the gradient of its own log
+        probability even when the checker cannot provide a gradient of reward.
+        <a
+          href="https://link.springer.com/article/10.1007/BF00992696"
+          target="_blank"
+          rel="noreferrer"
+          >Williams’ REINFORCE paper</a
+        >
+        develops this statistical gradient approach.
+      </p>
+      <details class="lesson-detail">
+        <summary>Weights and probabilities</summary>
+        <p>
+          A weight can be negative or larger than one. It scales a direction of
+          learning; it is never inserted directly into a probability bar.
+        </p>
+        <p>
+          Here each answer has an adjustable number called a
+          <strong>logit</strong>, \(z_j\). Softmax converts those numbers into
+          positive probabilities that sum to one when the logits are finite:
+        </p>
+        <div class="equation">\[p_j=\frac{\exp(z_j)}{\sum_k\exp(z_k)}\]</div>
+        <p>
+          An outcome with zero initial probability is masked out in this app.
+          Its probability stays zero. Initial support smoothing in Advanced adds
+          probability before learning; it is not an exploration bonus.
+        </p>
+        <p>
+          For a simple policy-gradient step with independent logits, the exact
+          calculation is:
+        </p>
+        <div class="equation">
+          \[\begin{aligned}\Delta z_j &= \frac{\eta}{n}\sum_i
+          A_i\bigl(\mathbf{1}_{y_i=j}-p_j\bigr),\\[4pt]p'_j &=
+          \operatorname{softmax}(z+\Delta z)_j.\end{aligned}\]
+        </div>
+        <p>
+          \(\mathbf{1}_{y_i=j}\) equals one when sampled answer \(i\) is answer
+          \(j\), and zero otherwise. \(\eta\) is the learning rate and \(n\) is
+          the number of samples. All samples contribute to each logit update.
+          Consequently, a positive weight on B does not guarantee B becomes more
+          likely: C’s contribution can outweigh it.
+        </p>
+        <p>
+          PPO adds repeated clipped updates; TRPO chooses a step using a KL
+          budget. Their chapters show those operations explicitly.
+        </p>
+      </details>
+      <h3>Algorithm differences</h3>
+      <p>
+        <a href="#algorithms/reinforce">REINFORCE</a> starts with raw rewards.
+        <a href="#algorithms/rloo">RLOO</a> and
+        <a href="#algorithms/a2c">A2C</a> supply different baselines.
+        <a href="#algorithms/ppo">PPO</a> changes how sampled information is
+        reused, and <a href="#algorithms/grpo">GRPO</a> uses group-standardized
+        advantages in that clipped update.
+        <a href="#algorithms/trpo">TRPO</a> checks a policy-distance constraint.
+      </p>
+      <p>
+        <a href="#algorithms/maxrl">MaxRL</a>,
+        <a href="#algorithms/pkpo">PKPO</a> and
+        <a href="#algorithms/tailrl">TailRL</a> change how success, retries or
+        reward thresholds enter the objective.
+        <a href="#algorithms/elite">Elite selection</a> is a simple rank-based
+        comparison. Each chapter has the same three-answer calculation, so the
+        differences are visible.
+      </p>
+      <h3>Interpreting reward histograms</h3>
+      <p>
+        Two models can have identical reward histograms and completely different
+        answers, parameters and gradients. A histogram therefore cannot predict
+        how an update on one prompt changes another prompt. Language models
+        share parameters across tokens and prompts; the simple independent
+        logits here do not capture that transfer.
+      </p>
+      <p>
+        Sorting rearranges existing values. A score transformation changes their
+        numerical scale. A policy update changes which answers are likely. These
+        are three different operations. Making training scores look Gaussian
+        does not make model outputs Gaussian, and a gap in scores does not prove
+        a gap in reasoning ability.
+      </p>
+      <p>
+        With a clean judge and a fixed strictly increasing reward map, expected
+        reward, best-of-k and finite TailRL all favor concentrating probability
+        on the highest-reward action with initial support. This unconstrained
+        bandit does not force a tradeoff between those objectives. Different
+        sampled paths do not establish a ranking for language-model training.
+        MaxRL instead treats every action above its success threshold equally.
+      </p>
+      <p>
+        For a real model, check held-out task success, poor-output rates,
+        reward-model errors, diversity, KL change and sensitivity to seeds and
+        rollout budgets. The displayed best-of-k metric is the exact expected
+        maximum original reward among k independent draws. It assumes an oracle
+        selector; an imperfect judge may select a worse candidate. In Advanced,
+        the k control sets both PKPO’s training target and every chart’s
+        evaluation budget. Hold it fixed when comparing runs.
+      </p>
+      <p class="guide-note">
+        This is one prompt with 21 independently adjustable action logits and
+        fixed original rewards. There is no entropy bonus or reference-policy KL
+        penalty. The bell preset is discrete and bounded. Reset reuses the seed;
+        changing the seed changes the random draws. Methods share random
+        numbers, but can sample different actions once their policies differ.
+        Equal updates do not mean equal compute: PPO and GRPO reuse each group
+        for multiple epochs. The worked examples fix one draw of each of three
+        answers; the visualizer samples with replacement.
+      </p>
+    </template>
+    <template id="worked-template">
+      <section class="worked-group" aria-labelledby="worked-title">
+        <h3 id="worked-title">Worked example</h3>
+        <p class="worked-intro">
+          Three possible answers, each initially one-third likely. For this
+          calculation, the group contains one of each. The table follows one
+          group update, using the same numerical rules as the visualizer.
+        </p>
+        <div class="worked-controls">
+          <label
+            >Scores<select id="lesson-group">
+              <option value="mixed">0.2, 0.5, 1.0</option>
+              <option value="binary">0, 0, 1 · one success</option>
+              <option value="tied">0.5, 0.5, 0.5 · tied</option>
+              <option value="success">1, 1, 1 · all succeed</option>
+            </select></label
+          >
+          <label
+            >Reward map<select id="lesson-map">
+              <option value="identity">Original</option>
+              <option value="square">Square</option>
+              <option value="affine">2r + 1</option>
+            </select></label
+          >
+        </div>
+        <p id="lesson-settings" class="hint"></p>
+        <p id="lesson-stage" class="lesson-stage" aria-live="polite"></p>
+        <div class="worked-transport">
+          <button id="lesson-previous">Previous step</button
+          ><button id="lesson-next" class="primary">Next step</button>
+        </div>
+        <table class="worked-table">
+          <caption class="sr-only">
+            Answer scores, learning weights and probabilities at the selected
+            calculation step
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Answer</th>
+              <th scope="col" id="lesson-score-heading">Score</th>
+              <th scope="col">Weight</th>
+              <th scope="col">Chance</th>
+            </tr>
+          </thead>
+          <tbody id="lesson-rows"></tbody>
+        </table>
+        <div
+          id="lesson-explanation"
+          class="lesson-explanation"
+          aria-live="polite"
+        ></div>
+      </section>
+    </template>
+
+    <footer>
+      <span
+        ><span aria-label="Rho">ρ</span>
+        <span class="footer-byline"
+          >by <a href="https://github.com/ayushnangia">Ayush Nangia</a></span
+        ></span
+      >
+    </footer>
+  </body>
+</html>

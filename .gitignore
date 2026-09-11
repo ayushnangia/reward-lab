@@ -1,0 +1,7 @@
+node_modules/
+.qa/
+qa-*.png
+.DS_Store
+*.log
+__pycache__/
+.env*
