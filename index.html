@@ -438,24 +438,12 @@
         <dialog id="video-dialog" aria-labelledby="video-title" aria-describedby="video-description">
           <h2 id="video-title">Export video</h2>
           <p id="video-description"></p>
-          <div class="video-options">
-            <label>Clip limit
-              <select id="video-duration">
-                <option value="15">Up to 15 seconds</option>
-                <option value="30" selected>Up to 30 seconds</option>
-                <option value="60">Up to 60 seconds</option>
-                <option value="full">Full run</option>
-              </select>
-            </label>
-            <label><input id="video-sound" type="checkbox" checked> Include visualizer sound</label>
-          </div>
           <p id="video-format" class="hint"></p>
           <canvas id="video-canvas" hidden aria-label="Video export preview"></canvas>
           <video id="video-preview" controls playsinline hidden aria-label="Exported video preview"></video>
           <p id="video-status" role="status">Keep this tab visible until export finishes.</p>
-          <progress id="video-progress" max="1" value="0" hidden aria-label="Video export progress"></progress>
           <div class="video-actions">
-            <button id="video-start">Create video</button>
+            <button id="video-start">Start recording</button>
             <a id="video-download" hidden>Download video</a>
             <button id="video-close">Close</button>
           </div>

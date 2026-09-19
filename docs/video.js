@@ -10,36 +10,11 @@ const RhoVideo = (() => {
       ["video/webm;codecs=vp8,opus", "webm"],
     ].find(([mime]) => Recorder?.isTypeSupported(mime));
   }
-  const audioTiming = typeof RhoAudio === "undefined" ? require("./audio.js") : RhoAudio;
-  function timing(horizon, limit, pace, withSound = true) {
-    if (!Number.isInteger(horizon) || horizon < 1 || ![15, 30, 60, "full"].includes(limit) ||
-        ![4800, 2400, 1200, 600, 400, 300].includes(pace))
-      throw Error("Choose a valid run, clip limit, and playback speed.");
-    const audio = audioTiming.playbackTiming(pace);
-    const phase = pace / 3000, transition = Math.min(.4, phase);
-    // Match advance(): sample, weight, update, then wait for the whole sound scan.
-    const interval = 2 * phase + Math.max(phase, withSound ? audio.listenTime : 0);
-    const steps = limit === "full" ? horizon : Math.min(horizon, Math.floor(limit / interval));
-    return { ...audio, phase, transition, interval, steps, duration: steps * interval, withSound };
-  }
-  function frameAt(plan, elapsed) {
-    const { steps, duration, interval, transition, phase, lead, scanTime, slot, withSound } = plan;
-    if (elapsed >= duration) return { from: steps, to: steps, shown: steps, mix: 0, bin: -1, stage: "Complete" };
-    const to = Math.min(steps, Math.floor(Math.max(0, elapsed) / interval) + 1);
-    const local = Math.max(0, elapsed) - (to - 1) * interval;
-    const updating = local >= 2 * phase;
-    const x = Math.max(0, Math.min(1, (local - 2 * phase) / transition));
-    const scanElapsed = local - 2 * phase - lead;
-    return { from: to - 1, to, shown: updating ? to : to - 1, mix: x * x * (3 - 2 * x),
-      stage: local < phase ? "Sample" : updating ? "Update" : "Weight",
-      bin: withSound && scanElapsed >= 0 && scanElapsed < scanTime ? Math.min(20, Math.floor(scanElapsed / slot)) : -1 };
-  }
-  function probabilities(history, method, frame) {
-    return history[frame.from].methods[method].p.map((p, i) =>
-      p + (history[frame.to].methods[method].p[i] - p) * frame.mix);
-  }
-  function draw(canvas, run, setup, palette, elapsed, plan, withSound) {
-    const c = canvas.getContext("2d"), f = frameAt(plan, elapsed), duration = plan.duration;
+  function draw(canvas, state, palette) {
+    const {run, methods, focus, shown, horizon, pace, phase, sounding, bin} = state;
+    const setup = {methods, focus, horizon, pace};
+    const c = canvas.getContext("2d"), f = {shown, stage: phase || "Paused", bin};
+    const withSound = sounding;
     const text = (s, x, y, size = 28, color = palette.ink, face = "Arial") => {
       c.fillStyle = color; c.font = `${size}px ${face}`; c.fillText(s, x, y);
     };
@@ -65,7 +40,7 @@ const RhoVideo = (() => {
         c.strokeStyle = palette.grid; c.beginPath(); c.moveTo(left, y); c.lineTo(left + plotWidth, y); c.stroke();
         text(`${v * 100}%`, x + 10, y + 7, 19, palette.muted);
       }
-      const p = probabilities(run.history, method, f), pitch = plotWidth / 21;
+      const p = run.history[shown].methods[method].p, pitch = plotWidth / 21;
       for (let i = 0; i < 21; i++) {
         const bx = left + i * pitch;
         c.fillStyle = palette.initial; c.fillRect(bx, bottom - run.base[i] * plotHeight, pitch - 2, run.base[i] * plotHeight);
@@ -84,101 +59,60 @@ const RhoVideo = (() => {
     }
     text(withSound ? `${LabContent.names[setup.focus]} sound · higher bars → higher, louder notes` : "Sound off", 64, 922, 27, palette.muted);
     c.fillStyle = palette.initial; c.fillRect(64, 959, 1792, 5);
-    c.fillStyle = palette.ink; c.fillRect(64, 959, 1792 * Math.min(1, elapsed / duration), 5);
+    c.fillStyle = palette.ink; c.fillRect(64, 959, 1792 * Math.min(1, shown / horizon), 5);
     text("ayushnangia.github.io/reward-lab", 64, 1017, 27);
-    text("Toy categorical policies · smooth replay · not an algorithm ranking", 925, 1017, 24, palette.muted);
+    text("Toy categorical policies · live recording", 925, 1017, 24, palette.muted);
   }
-  async function record({ canvas, setup, limit, withSound, volume, palette, signal, onProgress }) {
+  async function record({canvas, getState, palette, audio, master, signal, onStart}) {
     const chosen = format();
-    if (!chosen || typeof canvas.captureStream !== "function") throw Error("Video export is not supported in this browser. Try a current Chrome, Edge, or Safari.");
-    const config = LabConfig.validate(setup.cfg);
-    if (![25, 100, 300].includes(setup.horizon) || !Array.isArray(setup.methods) ||
-        !setup.methods.length || setup.methods.length > 3 || new Set(setup.methods).size !== setup.methods.length ||
-        setup.methods.some(m => !RewardLab.methods.includes(m)) || !setup.methods.includes(setup.focus) ||
-        !Number.isFinite(volume) || volume < 0 || volume > 1) throw Error("Invalid export settings.");
-    const times = timing(setup.horizon, limit, setup.pace, withSound), duration = times.duration;
-    let audio, stream, recorder, raf, watchdog, hidden;
+    if (!chosen || typeof canvas.captureStream !== "function") throw Error("Video recording is unavailable in this browser.");
+    let stream, recorder, raf, destination, silent, hidden, finish;
     const chunks = [];
     try {
-      if (withSound) {
-        audio = new (window.AudioContext || window.webkitAudioContext)();
-        await audio.resume();
-        if (audio.state !== "running") throw Error("Audio could not start. Try again or turn export sound off.");
-      }
-      const run = RewardLab.create(config);
-      // Yield during preparation so Cancel still works for long runs.
-      while (run.step < times.steps) {
-        signal.throwIfAborted();
-        RewardLab.step(run);
-        if (run.step % 10 === 0) await new Promise(resolve => setTimeout(resolve, 0));
-      }
-      signal.throwIfAborted();
-      if (document.hidden) throw Error("Keep this tab visible while exporting.");
       canvas.width = width; canvas.height = height;
-      draw(canvas, run, setup, palette, 0, times, withSound);
+      draw(canvas, getState(), palette);
       stream = canvas.captureStream(fps);
-      let destination, gain;
-      if (audio) {
-        destination = audio.createMediaStreamDestination();
-        gain = audio.createGain(); gain.gain.value = volume; gain.connect(destination);
-        // Keep the audio clock active through silent intro/outro and zero-support bins.
-        // Otherwise some recorders drop leading silence and shift the soundtrack.
-        const silence = audio.createConstantSource();
-        silence.offset.value = 0; silence.connect(destination); silence.start();
-        destination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
-      }
-      recorder = new MediaRecorder(stream, { mimeType: chosen[0], videoBitsPerSecond: 10000000, audioBitsPerSecond: 192000 });
-      const stopped = new Promise((resolve, reject) => {
+      destination = audio.createMediaStreamDestination();
+      // Tap the live output after volume; never synthesize a second soundtrack.
+      master.connect(destination);
+      silent = audio.createConstantSource();
+      silent.offset.value = 0; silent.connect(destination); silent.start();
+      destination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+      recorder = new MediaRecorder(stream, {mimeType: chosen[0], videoBitsPerSecond: 10000000, audioBitsPerSecond: 192000});
+      await new Promise((resolve, reject) => {
+        finish = () => { if (recorder.state !== "inactive") recorder.stop(); };
         recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
         recorder.onstop = resolve;
         recorder.onerror = event => reject(event.error || Error("Video encoding failed."));
-      });
-      // Handle recorder errors immediately, including while waiting for start.
-      stopped.catch(() => {});
-      await new Promise((resolve, reject) => {
-        recorder.onstart = resolve;
-        recorder.addEventListener("error", () => reject(Error("Video encoding could not start.")), {once:true});
+        hidden = () => { if (document.hidden) { finish(); reject(Error("Recording interrupted: keep this tab visible.")); } };
+        document.addEventListener("visibilitychange", hidden);
+        signal.addEventListener("abort", finish, {once:true});
+        recorder.onstart = () => {
+          if (signal.aborted) { finish(); return; }
+          onStart();
+          function tick() {
+            try {
+              draw(canvas, getState(), palette);
+              raf = requestAnimationFrame(tick);
+            } catch (error) { finish(); reject(error); }
+          }
+          tick();
+        };
         recorder.start(1000);
       });
-      const start = (audio ? audio.currentTime : performance.now() / 1000) + .1;
-      if (audio) {
-        for (let step = 1; step <= run.step; step++) {
-          RhoAudio.schedule(audio, run.history[step].methods[setup.focus].p,
-            start + (step - 1) * times.interval + 2 * times.phase + times.lead, gain, times.rate);
-        }
-      }
-      await Promise.race([stopped.then(() => { throw Error("Video encoding stopped early."); }), new Promise((resolve, reject) => {
-        const abort = () => reject(signal.reason || new DOMException("Export cancelled.", "AbortError"));
-        signal.addEventListener("abort", abort, {once:true});
-        hidden = () => { if (document.hidden) reject(Error("Export stopped because the tab was hidden. Keep it visible and try again.")); };
-        document.addEventListener("visibilitychange", hidden);
-        watchdog = setTimeout(() => reject(Error("Export timed out. Keep this tab visible and try again.")), (duration + 15) * 1000);
-        function tick() {
-          try {
-          if (signal.aborted) { abort(); return; }
-          const elapsed = Math.max(0, (audio ? audio.currentTime : performance.now() / 1000) - start);
-          draw(canvas, run, setup, palette, elapsed, times, withSound);
-          onProgress(Math.min(1, elapsed / duration));
-          if (elapsed >= duration) { signal.removeEventListener("abort", abort); resolve(); }
-          else raf = requestAnimationFrame(tick);
-          } catch (error) { reject(error); }
-        }
-        tick();
-      })]);
-      recorder.stop();
-      await stopped;
-      signal.throwIfAborted();
       const blob = new Blob(chunks, {type: recorder.mimeType});
       if (!blob.size) throw Error("The browser produced an empty video.");
-      return { blob, extension: chosen[1] };
+      return {blob, extension: chosen[1]};
     } finally {
-      cancelAnimationFrame(raf); clearTimeout(watchdog);
+      cancelAnimationFrame(raf);
+      signal.removeEventListener("abort", finish);
       if (hidden) document.removeEventListener("visibilitychange", hidden);
       if (recorder && recorder.state !== "inactive") recorder.stop();
+      if (destination) master.disconnect(destination);
+      silent?.stop(); silent?.disconnect();
       stream?.getTracks().forEach(track => track.stop());
-      if (audio && audio.state !== "closed") await audio.close();
     }
   }
-  return { format, timing, frameAt, probabilities, record };
+  return {format, draw, record};
 })();
 if (typeof module !== "undefined") module.exports = RhoVideo;
