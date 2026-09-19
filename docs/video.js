@@ -11,7 +11,7 @@ const RhoVideo = (() => {
     ].find(([mime]) => Recorder?.isTypeSupported(mime));
   }
   function dimensions(count) {
-    const rows = Math.ceil(count / 3), fullHeight = height + (rows - 1) * 616;
+    const rows = Math.ceil(count / 3), fullHeight = height + (rows - 1) * 616 + 360;
     const scale = Math.min(1, 1920 / fullHeight);
     return {width: Math.floor(width * scale / 2) * 2, height: Math.floor(fullHeight * scale / 2) * 2, fullHeight};
   }
@@ -69,7 +69,23 @@ const RhoVideo = (() => {
       text(`P(reward ≥ 0.9)  ${high}`, x + 26, 824, 25, palette.muted);
       c.restore();
     }
-    c.translate(0, fullHeight - height);
+    c.translate(0, fullHeight - height - 360);
+    const plot = RhoCurves.data(run.history, methods, state.metric || "mean", shown, horizon);
+    text(`Learning curves · ${plot.label}`, 64, 924, 28);
+    const curveX = step => 110 + step / horizon * 1710, curveY = value => 1175 - value / plot.max * 210;
+    for (const t of [0, .5, 1]) {
+      const y = curveY(t * plot.max);
+      c.strokeStyle = palette.grid; c.beginPath(); c.moveTo(110,y); c.lineTo(1820,y); c.stroke();
+      text((t * plot.max).toFixed(2),64,y+6,18,palette.muted);
+      text(String(t*horizon),curveX(t*horizon),1205,18,palette.muted);
+    }
+    for (const s of plot.series) {
+      c.strokeStyle = palette[s.id]; c.lineWidth = 3; c.beginPath();
+      s.points.forEach((p,i) => { if(i) c.lineTo(curveX(p.step),curveY(p.value)); else c.moveTo(curveX(p.step),curveY(p.value)); }); c.stroke();
+      const last = s.points.at(-1); c.fillStyle = palette[s.id]; c.fillRect(curveX(last.step)-3,curveY(last.value)-3,6,6);
+    }
+    text("Training update",850,1240,22,palette.muted);
+    c.translate(0,360);
     text(withSound ? `${LabContent.names[setup.focus]} sound · higher bars → higher, louder notes` : "Sound off", 64, 922, 27, palette.muted);
     c.fillStyle = palette.initial; c.fillRect(64, 959, 1792, 5);
     c.fillStyle = palette.ink; c.fillRect(64, 959, 1792 * Math.min(1, shown / horizon), 5);

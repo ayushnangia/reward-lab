@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 global.RewardLab = require('./core.js');
 global.LabContent = require('./content.js');
+global.RhoCurves = require('./curves.js');
 const V = require('./video.js');
 const run = RewardLab.create({preset:'bell', seed:42});
 for(let i=0;i<7;i++) RewardLab.step(run);
@@ -49,3 +50,16 @@ for(let count=1;count<=RewardLab.methods.length;count++) {
   assert(size.width%2===0 && size.height%2===0);
 }
 console.log('PASS: expanding video grids include every selected algorithm for 1–10 selections.');
+
+for(const metric of Object.keys(RhoCurves.metrics)) {
+  const plot=RhoCurves.data(run.history,RewardLab.methods,metric,3,100);
+  assert.equal(plot.series.length,10);
+  for(const series of plot.series) {
+    assert.equal(series.points.length,4);
+    assert.equal(series.points.at(-1).value,run.history[3].methods[series.id].metrics[metric]);
+    assert(series.points.every(p=>p.value>=-1e-12 && p.value<=plot.max+1e-12));
+  }
+  assert(!RhoCurves.svg(plot,LabContent.names).includes('NaN'));
+}
+assert.equal(RhoCurves.data(run.history,['ppo'],'mean',0,25).series[0].points.length,1);
+console.log('PASS: all six learning metrics, ten algorithms, replay truncation, and initial state.');

@@ -11,6 +11,7 @@ const files = [
   "theme.js",
   "audio.js",
   "video.js",
+  "curves.js",
   "algorithms.js",
   "core.js",
   "config.js",

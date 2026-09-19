@@ -645,6 +645,12 @@
       )
       .join("");
   }
+  function renderCurves() {
+    const plot = RhoCurves.data(sim.history, selected, $("curve-metric").value, shown, horizon);
+    $("curve-chart").innerHTML = RhoCurves.svg(plot, names);
+    $("curve-values").innerHTML = plot.series.map(s => `<span style="--series:var(--${s.id})"><i></i>${names[s.id]} <b>${s.points.at(-1).value.toFixed(3)}</b></span>`).join("");
+  }
+  $("curve-metric").onchange = renderCurves;
   function render() {
     const frame = sim.history[shown];
     for (const card of document.querySelectorAll(".algorithm-card")) {
@@ -704,6 +710,7 @@
     $("sound-key").textContent =
       `${names[focus]} sound: taller bars → higher, louder notes. The scan moves from reward 0 to 1; zero bars are silent. Start → Current uses the same scales for both.`;
     renderInspector();
+    renderCurves();
   }
   function silence() {
     cancelAnimationFrame(soundFrame);
@@ -1372,7 +1379,7 @@
         canvas: $("video-canvas"), palette, audio: audioContext, master: audioMaster,
         signal: videoController.signal,
         getState: () => ({run: sim, methods: selected.slice(),
-          focus, shown, horizon, pace, phase: playing ? phase : "Paused", sounding,
+          focus, shown, horizon, pace, metric: $("curve-metric").value, phase: playing ? phase : "Paused", sounding,
           bin: Array.from(document.querySelectorAll(`[data-method="${focus}"] .bar`)).findIndex(bar => bar.classList.contains("sounding"))}),
         onStart() {
           videoDialog.close();

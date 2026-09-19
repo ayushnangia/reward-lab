@@ -1737,3 +1737,14 @@ input[type="range"] {
 :root[data-theme="dark"] .algorithm-card[data-selected="true"] {
   border-color: var(--hover-border);
 }
+
+.learning-curves { margin: 24px 0; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; }
+.curve-heading, .curve-values { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.curve-heading { justify-content: space-between; }
+.curve-heading h2 { font: 24px var(--serif); }
+.curve-heading select { max-width: 100%; }
+#curve-chart svg { display: block; width: 100%; min-width: 480px; }
+#curve-chart { overflow-x: auto; }
+#curve-chart text { fill: var(--muted); font: 15px var(--sans); }
+.curve-values span { display: inline-flex; align-items: center; gap: 6px; }
+.curve-values i { width: 14px; height: 3px; background: var(--series); }

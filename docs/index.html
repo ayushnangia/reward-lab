@@ -31,7 +31,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="assets/favicon.svg?v=rho" type="image/svg+xml" />
     <link rel="stylesheet" href="assets/katex/katex.min.css?v=50d9c78e03" />
-    <link rel="stylesheet" href="rho.css?v=0e01344187" />
+    <link rel="stylesheet" href="rho.css?v=3a7cbad094" />
     <script src="assets/katex/katex.min.js?v=10a91b479c" defer></script>
     <script src="assets/katex/contrib/auto-render.min.js?v=e5372d199b" defer></script>
     <script src="core.js?v=5cbc95c785" defer></script>
@@ -39,8 +39,9 @@
     <script src="content.js?v=1c75a0351b" defer></script>
     <script src="algorithms.js?v=6b9861b472" defer></script>
     <script src="audio.js?v=0a9255cffa" defer></script>
-    <script src="video.js?v=e91e6377a2" defer></script>
-    <script src="visualizer.js?v=36613687f6" defer></script>
+    <script src="curves.js?v=a4544f59ce" defer></script>
+    <script src="video.js?v=a7947bbd84" defer></script>
+    <script src="visualizer.js?v=d4eb773a9e" defer></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
@@ -420,6 +421,17 @@
         <p id="status" class="status" role="status">
           Press Play or Next step to begin.
         </p>
+        <section class="learning-curves" aria-labelledby="curve-title">
+          <div class="curve-heading"><h2 id="curve-title">Learning curves</h2>
+            <label>Metric <select id="curve-metric">
+              <option value="mean">Mean original reward</option><option value="high">P(reward ≥ 0.9)</option>
+              <option value="bad">P(reward &lt; 0.3)</option><option value="middle">P(0.3 ≤ reward &lt; 0.9)</option>
+              <option value="best">Expected best-of-k reward</option><option value="entropy">Entropy (nats)</option>
+            </select></label>
+          </div>
+          <p class="hint">Progress for every selected algorithm, through the displayed update. Reward metrics use original rewards. Replay moves the curves with the charts.</p>
+          <div id="curve-chart"></div><div id="curve-values" class="curve-values"></div>
+        </section>
         <div class="below-plot">
           <p>
             Finite categorical policies with 21 outcomes. These are

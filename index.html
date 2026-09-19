@@ -39,6 +39,7 @@
     <script src="content.js" defer></script>
     <script src="algorithms.js" defer></script>
     <script src="audio.js" defer></script>
+    <script src="curves.js" defer></script>
     <script src="video.js" defer></script>
     <script src="visualizer.js" defer></script>
   </head>
@@ -420,6 +421,17 @@
         <p id="status" class="status" role="status">
           Press Play or Next step to begin.
         </p>
+        <section class="learning-curves" aria-labelledby="curve-title">
+          <div class="curve-heading"><h2 id="curve-title">Learning curves</h2>
+            <label>Metric <select id="curve-metric">
+              <option value="mean">Mean original reward</option><option value="high">P(reward ≥ 0.9)</option>
+              <option value="bad">P(reward &lt; 0.3)</option><option value="middle">P(0.3 ≤ reward &lt; 0.9)</option>
+              <option value="best">Expected best-of-k reward</option><option value="entropy">Entropy (nats)</option>
+            </select></label>
+          </div>
+          <p class="hint">Progress for every selected algorithm, through the displayed update. Reward metrics use original rewards. Replay moves the curves with the charts.</p>
+          <div id="curve-chart"></div><div id="curve-values" class="curve-values"></div>
+        </section>
         <div class="below-plot">
           <p>
             Finite categorical policies with 21 outcomes. These are
