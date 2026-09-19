@@ -20,7 +20,7 @@ const RhoAudio = (() => {
               bin: i,
               at: i * slot,
               frequency: 130.81278265 * 2 ** (3 * Math.sqrt(p)),
-              peakGain: 0.02 + 0.14 * Math.sqrt(p),
+              peakGain: 3 * (0.02 + 0.14 * Math.sqrt(p)),
               pan: (i / 20 - 0.5) * 1.4,
             },
           ]
