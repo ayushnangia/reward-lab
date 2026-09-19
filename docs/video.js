@@ -10,15 +10,25 @@ const RhoVideo = (() => {
       ["video/webm;codecs=vp8,opus", "webm"],
     ].find(([mime]) => Recorder?.isTypeSupported(mime));
   }
+  function dimensions(count) {
+    const rows = Math.ceil(count / 3), fullHeight = height + (rows - 1) * 616;
+    const scale = Math.min(1, 1920 / fullHeight);
+    return {width: Math.floor(width * scale / 2) * 2, height: Math.floor(fullHeight * scale / 2) * 2, fullHeight};
+  }
   function draw(canvas, state, palette) {
     const {run, methods, focus, shown, horizon, pace, phase, sounding, bin} = state;
     const setup = {methods, focus, horizon, pace};
     const c = canvas.getContext("2d"), f = {shown, stage: phase || "Paused", bin};
     const withSound = sounding;
+    const fullHeight = dimensions(methods.length).fullHeight;
+    c.fillStyle = palette.paper; c.fillRect(0, 0, canvas.width, canvas.height);
+    c.save();
+    const scale = Math.min(canvas.width / width, canvas.height / fullHeight);
+    c.scale(scale, scale);
     const text = (s, x, y, size = 28, color = palette.ink, face = "Arial") => {
       c.fillStyle = color; c.font = `${size}px ${face}`; c.fillText(s, x, y);
     };
-    c.fillStyle = palette.paper; c.fillRect(0, 0, width, height);
+    c.fillStyle = palette.paper; c.fillRect(0, 0, width, fullHeight);
     text("ρ · Policy updates", 64, 90, 58, palette.ink, "Georgia");
     text(RewardLab.presets[run.cfg.preset], 64, 146, 30);
     const map = run.cfg.transform === "identity" ? "Original reward (no change)" : LabContent.transforms[run.cfg.transform];
@@ -27,9 +37,10 @@ const RhoVideo = (() => {
     text(`Update ${f.shown} / ${setup.horizon}`, 1510, 92, 32);
     text("Gray: start · Color: current", 1390, 145, 26, palette.muted);
     text(`${1200 / setup.pace}× playback · ${f.stage}`, 1390, 191, 26, palette.muted);
-    const gap = 26, cardWidth = (1792 - gap * (setup.methods.length - 1)) / setup.methods.length;
+    const gap = 26, columns = Math.min(3, methods.length), cardWidth = (1792 - gap * (columns - 1)) / columns;
     for (const [j, method] of setup.methods.entries()) {
-      const x = 64 + j * (cardWidth + gap), color = palette[method];
+      c.save(); c.translate(0, Math.floor(j / columns) * 616);
+      const x = 64 + (j % columns) * (cardWidth + gap), color = palette[method];
       c.fillStyle = palette.surface; c.fillRect(x, 282, cardWidth, 590);
       text(LabContent.names[method], x + 26, 336, 40, color, "Georgia");
       text("Probability", x + 26, 380, 23, palette.muted);
@@ -56,12 +67,15 @@ const RhoVideo = (() => {
       text(`Mean reward  ${metrics.mean.toFixed(3)}`, x + 26, 782, 28);
       const high = metrics.high > 0 && metrics.high < .001 ? "<0.1%" : `${(metrics.high * 100).toFixed(1)}%`;
       text(`P(reward ≥ 0.9)  ${high}`, x + 26, 824, 25, palette.muted);
+      c.restore();
     }
+    c.translate(0, fullHeight - height);
     text(withSound ? `${LabContent.names[setup.focus]} sound · higher bars → higher, louder notes` : "Sound off", 64, 922, 27, palette.muted);
     c.fillStyle = palette.initial; c.fillRect(64, 959, 1792, 5);
     c.fillStyle = palette.ink; c.fillRect(64, 959, 1792 * Math.min(1, shown / horizon), 5);
     text("ayushnangia.github.io/reward-lab", 64, 1017, 27);
     text("Toy categorical policies · live recording", 925, 1017, 24, palette.muted);
+    c.restore();
   }
   async function record({canvas, getState, palette, audio, master, signal, onStart}) {
     const chosen = format();
@@ -69,7 +83,8 @@ const RhoVideo = (() => {
     let stream, recorder, raf, destination, silent, hidden, finish;
     const chunks = [];
     try {
-      canvas.width = width; canvas.height = height;
+      const size = dimensions(getState().methods.length);
+      canvas.width = size.width; canvas.height = size.height;
       draw(canvas, getState(), palette);
       stream = canvas.captureStream(fps);
       destination = audio.createMediaStreamDestination();
@@ -113,6 +128,6 @@ const RhoVideo = (() => {
       stream?.getTracks().forEach(track => track.stop());
     }
   }
-  return {format, draw, record};
+  return {format, dimensions, draw, record};
 })();
 if (typeof module !== "undefined") module.exports = RhoVideo;

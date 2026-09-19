@@ -7,8 +7,8 @@ const run = RewardLab.create({preset:'bell', seed:42});
 for(let i=0;i<7;i++) RewardLab.step(run);
 const before=JSON.stringify(run);
 let labels=[], bars=[];
-const context={fillText:s=>labels.push(s),fillRect:(...v)=>bars.push(v),beginPath(){},moveTo(){},lineTo(){},stroke(){},strokeRect(){}};
-const canvas={getContext:()=>context};
+const context={fillText:s=>labels.push(s),fillRect:(...v)=>bars.push(v),beginPath(){},moveTo(){},lineTo(){},stroke(){},strokeRect(){},save(){},restore(){},scale(){},translate(){}};
+const canvas={width:1920,height:1080,getContext:()=>context};
 let state={run,methods:['ppo'],focus:'ppo',shown:7,horizon:100,pace:300,phase:'update',sounding:true,bin:5};
 V.draw(canvas,state,{});
 assert(labels.includes('Update 7 / 100'));
@@ -39,3 +39,13 @@ for (let start=0; start<RewardLab.methods.length; start+=3) {
   }
 }
 console.log('PASS: all ten algorithms, every focus, and partial chart-page exports.');
+
+for(let count=1;count<=RewardLab.methods.length;count++) {
+  const methods=RewardLab.methods.slice(0,count), size=V.dimensions(count);
+  labels=[];
+  V.draw({...canvas,...size},{...state,methods,focus:methods[0]},{});
+  for(const method of methods) assert(labels.includes(LabContent.names[method]));
+  assert(size.width<=1920 && size.height<=1920);
+  assert(size.width%2===0 && size.height%2===0);
+}
+console.log('PASS: expanding video grids include every selected algorithm for 1–10 selections.');

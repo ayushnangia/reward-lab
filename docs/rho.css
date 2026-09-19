@@ -1690,21 +1690,6 @@ input[type="range"] {
   background: var(--soft);
   font-weight: 600;
 }
-#grid-pages {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-#grid-pages button {
-  min-width: 39px;
-  padding: 6px 10px;
-}
-#chart-page {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
 /* Fit the charts together without compressing the surrounding page. */
 @media (min-width: 1000px) {
   #comparison[data-count="3"] {
@@ -1746,10 +1731,6 @@ input[type="range"] {
   }
   .controls > #sound {
     margin-left: 0;
-  }
-  #grid-pages {
-    margin-top: 12px;
-    width: max-content;
   }
 }
 
