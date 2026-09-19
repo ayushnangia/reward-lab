@@ -31,7 +31,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="assets/favicon.svg?v=rho" type="image/svg+xml" />
     <link rel="stylesheet" href="assets/katex/katex.min.css?v=50d9c78e03" />
-    <link rel="stylesheet" href="rho.css?v=0dbbbc0dfa" />
+    <link rel="stylesheet" href="rho.css?v=49eb87a774" />
     <script src="assets/katex/katex.min.js?v=10a91b479c" defer></script>
     <script src="assets/katex/contrib/auto-render.min.js?v=e5372d199b" defer></script>
     <script src="core.js?v=5cbc95c785" defer></script>
@@ -39,7 +39,8 @@
     <script src="content.js?v=1c75a0351b" defer></script>
     <script src="algorithms.js?v=6b9861b472" defer></script>
     <script src="audio.js?v=4406266087" defer></script>
-    <script src="visualizer.js?v=630c5ed7d9" defer></script>
+    <script src="video.js?v=6395f2b032" defer></script>
+    <script src="visualizer.js?v=cb41ccc6e8" defer></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
@@ -431,8 +432,33 @@
           <div>
             <button id="share">Copy setup link</button
             ><button id="save-image">Save image</button>
+            <button id="export-video">Export video</button>
           </div>
         </div>
+        <dialog id="video-dialog" aria-labelledby="video-title" aria-describedby="video-description">
+          <h2 id="video-title">Export video</h2>
+          <p id="video-description"></p>
+          <div class="video-options">
+            <label>Clip length
+              <select id="video-duration">
+                <option value="15">15 seconds</option>
+                <option value="30" selected>30 seconds</option>
+                <option value="60">60 seconds</option>
+              </select>
+            </label>
+            <label><input id="video-sound" type="checkbox" checked> Include visualizer sound</label>
+          </div>
+          <p id="video-format" class="hint"></p>
+          <canvas id="video-canvas" hidden aria-label="Video export preview"></canvas>
+          <video id="video-preview" controls playsinline hidden aria-label="Exported video preview"></video>
+          <p id="video-status" role="status">Keep this tab visible until export finishes.</p>
+          <progress id="video-progress" max="1" value="0" hidden aria-label="Video export progress"></progress>
+          <div class="video-actions">
+            <button id="video-start">Create video</button>
+            <a id="video-download" hidden>Download video</a>
+            <button id="video-close">Close</button>
+          </div>
+        </dialog>
         <details id="inspector" class="inspector">
           <summary>
             Inside one update <span id="inspect-name">GRPO</span>

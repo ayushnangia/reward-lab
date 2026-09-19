@@ -1362,6 +1362,87 @@
       button.disabled = false;
     }
   };
+  let videoController, videoURL, videoSetup;
+  const videoDialog = $("video-dialog");
+  function clearVideo() {
+    $("video-preview").pause();
+    $("video-preview").removeAttribute("src");
+    $("video-preview").load();
+    $("video-preview").hidden = true;
+    $("video-download").hidden = true;
+    $("video-download").removeAttribute("href");
+    if (videoURL) URL.revokeObjectURL(videoURL);
+    videoURL = null;
+  }
+  $("export-video").onclick = () => {
+    pause();
+    clearVideo();
+    const methods = selected.slice(chartPage * 3, chartPage * 3 + 3);
+    videoSetup = {cfg: structuredClone(cfg), methods, focus: methods.includes(focus) ? focus : methods[0], horizon};
+    $("video-description").textContent = `${methods.map(id => names[id]).join(", ")} · updates 0–${horizon}. Uses the current experiment settings. Sound follows ${names[videoSetup.focus]} at the clip's speed, using the current volume.`;
+    const supported = RhoVideo.format() && typeof HTMLCanvasElement.prototype.captureStream === "function";
+    $("video-start").disabled = !supported;
+    $("video-format").textContent = supported
+      ? `1080p · up to 60 fps · ${RhoVideo.format()[1].toUpperCase()}. ${RhoVideo.format()[1] === "webm" ? "This browser exports WebM; use an MP4-capable browser if your sharing app requires MP4." : ""}`
+      : "Video recording is unavailable in this browser. Try a current Chrome, Edge, or Safari.";
+    $("video-status").textContent = "Keep this tab visible until export finishes. Your on-screen run is preserved.";
+    $("video-canvas").hidden = true;
+    $("video-progress").hidden = true;
+    videoDialog.showModal();
+  };
+  $("video-close").onclick = () => {
+    if (videoController) videoController.abort();
+    else videoDialog.close();
+  };
+  videoDialog.addEventListener("cancel", event => {
+    if (videoController) { event.preventDefault(); videoController.abort(); }
+  });
+  videoDialog.addEventListener("close", clearVideo);
+  $("video-start").onclick = async () => {
+    if (videoController) return;
+    clearVideo();
+    videoController = new AbortController();
+    $("video-start").disabled = $("video-duration").disabled = $("video-sound").disabled = true;
+    $("video-close").textContent = "Cancel export";
+    $("video-status").textContent = "Preparing your run…";
+    $("video-progress").value = 0;
+    $("video-progress").hidden = false;
+    $("video-canvas").hidden = false;
+    const style = getComputedStyle(document.documentElement);
+    const palette = Object.fromEntries(["paper", "surface", "ink", "muted", "grid", "initial", ...videoSetup.methods]
+      .map(key => [key, style.getPropertyValue(`--${key}`).trim()]));
+    try {
+      let lastPercent = -1;
+      const {blob, extension} = await RhoVideo.record({
+        canvas: $("video-canvas"), setup: videoSetup, palette,
+        duration: Number($("video-duration").value), withSound: $("video-sound").checked,
+        volume: Number($("volume").value), signal: videoController.signal,
+        onProgress(progress) {
+          $("video-progress").value = progress;
+          const value = Math.floor(progress * 100);
+          if (value !== lastPercent) {
+            $("video-status").textContent = `Creating video… ${value}%. Keep this tab visible.`;
+            lastPercent = value;
+          }
+        },
+      });
+      videoURL = URL.createObjectURL(blob);
+      $("video-preview").src = videoURL;
+      $("video-preview").hidden = false;
+      $("video-download").href = videoURL;
+      $("video-download").download = `rho-${videoSetup.cfg.transform}-seed-${videoSetup.cfg.seed}.${extension}`;
+      $("video-download").hidden = false;
+      $("video-status").textContent = `Video ready (${(blob.size / 1e6).toFixed(1)} MB). Preview it, then download.`;
+    } catch (error) {
+      $("video-status").textContent = error.name === "AbortError" ? "Export cancelled. Your run is unchanged." : `Could not export: ${error.message}`;
+    } finally {
+      videoController = null;
+      $("video-start").disabled = $("video-duration").disabled = $("video-sound").disabled = false;
+      $("video-close").textContent = "Close";
+      $("video-canvas").hidden = true;
+      $("video-progress").hidden = true;
+    }
+  };
   typeset($("settings"));
   typeset($("inspector"));
   reset();

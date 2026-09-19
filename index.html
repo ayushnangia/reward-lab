@@ -39,6 +39,7 @@
     <script src="content.js" defer></script>
     <script src="algorithms.js" defer></script>
     <script src="audio.js" defer></script>
+    <script src="video.js" defer></script>
     <script src="visualizer.js" defer></script>
   </head>
   <body>
@@ -431,8 +432,33 @@
           <div>
             <button id="share">Copy setup link</button
             ><button id="save-image">Save image</button>
+            <button id="export-video">Export video</button>
           </div>
         </div>
+        <dialog id="video-dialog" aria-labelledby="video-title" aria-describedby="video-description">
+          <h2 id="video-title">Export video</h2>
+          <p id="video-description"></p>
+          <div class="video-options">
+            <label>Clip length
+              <select id="video-duration">
+                <option value="15">15 seconds</option>
+                <option value="30" selected>30 seconds</option>
+                <option value="60">60 seconds</option>
+              </select>
+            </label>
+            <label><input id="video-sound" type="checkbox" checked> Include visualizer sound</label>
+          </div>
+          <p id="video-format" class="hint"></p>
+          <canvas id="video-canvas" hidden aria-label="Video export preview"></canvas>
+          <video id="video-preview" controls playsinline hidden aria-label="Exported video preview"></video>
+          <p id="video-status" role="status">Keep this tab visible until export finishes.</p>
+          <progress id="video-progress" max="1" value="0" hidden aria-label="Video export progress"></progress>
+          <div class="video-actions">
+            <button id="video-start">Create video</button>
+            <a id="video-download" hidden>Download video</a>
+            <button id="video-close">Close</button>
+          </div>
+        </dialog>
         <details id="inspector" class="inspector">
           <summary>
             Inside one update <span id="inspect-name">GRPO</span>

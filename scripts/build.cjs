@@ -10,6 +10,7 @@ const files = [
   "visualizer.js",
   "theme.js",
   "audio.js",
+  "video.js",
   "algorithms.js",
   "core.js",
   "config.js",
