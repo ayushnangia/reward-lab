@@ -2,6 +2,14 @@
 const RhoAudio = (() => {
   const slot = 0.1,
     duration = 0.085;
+  // Shared by live playback and video export. Clip length must never change notes.
+  function playbackTiming(pace, auto = true, fromBin = 0) {
+    const rate = auto ? 1200 / pace : 1;
+    const stepSlot = slot / rate;
+    const lead = (fromBin ? 0 : Math.min(400, pace / 3) / 1000) + 0.02;
+    const scanTime = (21 - fromBin) * stepSlot;
+    return { rate, slot: stepSlot, lead, scanTime, listenTime: lead + scanTime + 0.02 };
+  }
   // Fixed scales: time/pan = reward; pitch and level = sqrt(probability).
   // A quiet floor keeps positive rare bins audible; exact zeros remain silent.
   const notes = (probabilities) =>
@@ -49,6 +57,6 @@ const RhoAudio = (() => {
       return { oscillator, gain };
     });
   }
-  return { notes, schedule, slot, duration };
+  return { notes, schedule, slot, duration, playbackTiming };
 })();
 if (typeof module !== "undefined") module.exports = RhoAudio;

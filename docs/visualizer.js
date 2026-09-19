@@ -764,9 +764,7 @@
     silence();
     const current = sim.history[shown].methods[focus].p;
     if (fromBin >= current.length) return 0;
-    const rate = auto ? 1200 / pace : 1;
-    const slot = RhoAudio.slot / rate;
-    const scanTime = (current.length - fromBin) * slot;
+    const { rate, slot, scanTime, lead } = RhoAudio.playbackTiming(pace, auto, fromBin);
     const segments = compare
       ? [
           {
@@ -790,7 +788,6 @@
             selector: ".bar",
           },
         ];
-    const lead = (fromBin ? 0 : Math.min(400, pace / 3) / 1000) + 0.02;
     const start = audioContext.currentTime + lead;
     if (auto) liveScan = { start, rate, fromBin };
     const card = document.querySelector(`[data-method="${focus}"]`);
@@ -1374,12 +1371,19 @@
     if (videoURL) URL.revokeObjectURL(videoURL);
     videoURL = null;
   }
+  const videoLimit = () => $("video-duration").value === "full" ? "full" : Number($("video-duration").value);
+  function describeVideo() {
+    const plan = RhoVideo.timing(videoSetup.horizon, videoLimit(), videoSetup.pace, $("video-sound").checked);
+    $("video-description").textContent = `${videoSetup.methods.map(id => names[id]).join(", ")} · updates 0–${plan.steps} of ${videoSetup.horizon} · ${1200 / videoSetup.pace}× playback · about ${Math.ceil(plan.duration)} seconds. Sound uses the website's timing and current volume for ${names[videoSetup.focus]}. The clip stops after a complete update; it does not speed up the sound.`;
+  }
+  $("video-duration").onchange = describeVideo;
+  $("video-sound").onchange = describeVideo;
   $("export-video").onclick = () => {
     pause();
     clearVideo();
     const methods = selected.slice(chartPage * 3, chartPage * 3 + 3);
-    videoSetup = {cfg: structuredClone(cfg), methods, focus: methods.includes(focus) ? focus : methods[0], horizon};
-    $("video-description").textContent = `${methods.map(id => names[id]).join(", ")} · updates 0–${horizon}. Uses the current experiment settings. Sound follows ${names[videoSetup.focus]} at the clip's speed, using the current volume.`;
+    videoSetup = {cfg: structuredClone(cfg), methods, focus: methods.includes(focus) ? focus : methods[0], horizon, pace};
+    describeVideo();
     const supported = RhoVideo.format() && typeof HTMLCanvasElement.prototype.captureStream === "function";
     $("video-start").disabled = !supported;
     $("video-format").textContent = supported
@@ -1415,7 +1419,7 @@
       let lastPercent = -1;
       const {blob, extension} = await RhoVideo.record({
         canvas: $("video-canvas"), setup: videoSetup, palette,
-        duration: Number($("video-duration").value), withSound: $("video-sound").checked,
+        limit: videoLimit(), withSound: $("video-sound").checked,
         volume: Number($("volume").value), signal: videoController.signal,
         onProgress(progress) {
           $("video-progress").value = progress;

@@ -10,28 +10,36 @@ const RhoVideo = (() => {
       ["video/webm;codecs=vp8,opus", "webm"],
     ].find(([mime]) => Recorder?.isTypeSupported(mime));
   }
-  function timing(steps, duration) {
-    if (!Number.isInteger(steps) || steps < 1 || ![15, 30, 60].includes(duration))
-      throw Error("Choose a valid run and clip length.");
-    const interval = (duration - 2) / steps;
-    return { interval, transition: interval * 0.3, scan: interval * 0.7 };
+  const audioTiming = typeof RhoAudio === "undefined" ? require("./audio.js") : RhoAudio;
+  function timing(horizon, limit, pace, withSound = true) {
+    if (!Number.isInteger(horizon) || horizon < 1 || ![15, 30, 60, "full"].includes(limit) ||
+        ![4800, 2400, 1200, 600, 400, 300].includes(pace))
+      throw Error("Choose a valid run, clip limit, and playback speed.");
+    const audio = audioTiming.playbackTiming(pace);
+    const phase = pace / 3000, transition = Math.min(.4, phase);
+    // Match advance(): sample, weight, update, then wait for the whole sound scan.
+    const interval = 2 * phase + Math.max(phase, withSound ? audio.listenTime : 0);
+    const steps = limit === "full" ? horizon : Math.min(horizon, Math.floor(limit / interval));
+    return { ...audio, phase, transition, interval, steps, duration: steps * interval, withSound };
   }
-  function frameAt(steps, duration, elapsed) {
-    const { interval, transition, scan } = timing(steps, duration);
-    if (elapsed <= 1) return { from: 0, to: 0, mix: 0, bin: -1 };
-    if (elapsed >= duration - 1) return { from: steps, to: steps, mix: 0, bin: -1 };
-    const to = Math.min(steps, Math.floor((elapsed - 1) / interval) + 1);
-    const local = elapsed - 1 - (to - 1) * interval;
-    const x = Math.min(1, local / transition);
-    return { from: to - 1, to, mix: x * x * (3 - 2 * x),
-      bin: local < transition ? -1 : Math.min(20, Math.floor((local - transition) / scan * 21)) };
+  function frameAt(plan, elapsed) {
+    const { steps, duration, interval, transition, phase, lead, scanTime, slot, withSound } = plan;
+    if (elapsed >= duration) return { from: steps, to: steps, shown: steps, mix: 0, bin: -1, stage: "Complete" };
+    const to = Math.min(steps, Math.floor(Math.max(0, elapsed) / interval) + 1);
+    const local = Math.max(0, elapsed) - (to - 1) * interval;
+    const updating = local >= 2 * phase;
+    const x = Math.max(0, Math.min(1, (local - 2 * phase) / transition));
+    const scanElapsed = local - 2 * phase - lead;
+    return { from: to - 1, to, shown: updating ? to : to - 1, mix: x * x * (3 - 2 * x),
+      stage: local < phase ? "Sample" : updating ? "Update" : "Weight",
+      bin: withSound && scanElapsed >= 0 && scanElapsed < scanTime ? Math.min(20, Math.floor(scanElapsed / slot)) : -1 };
   }
   function probabilities(history, method, frame) {
     return history[frame.from].methods[method].p.map((p, i) =>
       p + (history[frame.to].methods[method].p[i] - p) * frame.mix);
   }
-  function draw(canvas, run, setup, palette, elapsed, duration, withSound) {
-    const c = canvas.getContext("2d"), f = frameAt(run.step, duration, elapsed);
+  function draw(canvas, run, setup, palette, elapsed, plan, withSound) {
+    const c = canvas.getContext("2d"), f = frameAt(plan, elapsed), duration = plan.duration;
     const text = (s, x, y, size = 28, color = palette.ink, face = "Arial") => {
       c.fillStyle = color; c.font = `${size}px ${face}`; c.fillText(s, x, y);
     };
@@ -41,8 +49,9 @@ const RhoVideo = (() => {
     const map = run.cfg.transform === "identity" ? "Original reward (no change)" : LabContent.transforms[run.cfg.transform];
     text(map, 64, 191, 30);
     text(`${LabContent.judges[run.cfg.judge]} · ${run.cfg.n} samples/update · seed ${run.cfg.seed} · learning rate ${run.cfg.lr}`, 64, 235, 26, palette.muted);
-    text(`Update ${f.to} / ${run.step}`, 1510, 92, 32);
+    text(`Update ${f.shown} / ${setup.horizon}`, 1510, 92, 32);
     text("Gray: start · Color: current", 1390, 145, 26, palette.muted);
+    text(`${1200 / setup.pace}× playback · ${f.stage}`, 1390, 191, 26, palette.muted);
     const gap = 26, cardWidth = (1792 - gap * (setup.methods.length - 1)) / setup.methods.length;
     for (const [j, method] of setup.methods.entries()) {
       const x = 64 + j * (cardWidth + gap), color = palette[method];
@@ -79,7 +88,7 @@ const RhoVideo = (() => {
     text("ayushnangia.github.io/reward-lab", 64, 1017, 27);
     text("Toy categorical policies · smooth replay · not an algorithm ranking", 925, 1017, 24, palette.muted);
   }
-  async function record({ canvas, setup, duration, withSound, volume, palette, signal, onProgress }) {
+  async function record({ canvas, setup, limit, withSound, volume, palette, signal, onProgress }) {
     const chosen = format();
     if (!chosen || typeof canvas.captureStream !== "function") throw Error("Video export is not supported in this browser. Try a current Chrome, Edge, or Safari.");
     const config = LabConfig.validate(setup.cfg);
@@ -87,7 +96,7 @@ const RhoVideo = (() => {
         !setup.methods.length || setup.methods.length > 3 || new Set(setup.methods).size !== setup.methods.length ||
         setup.methods.some(m => !RewardLab.methods.includes(m)) || !setup.methods.includes(setup.focus) ||
         !Number.isFinite(volume) || volume < 0 || volume > 1) throw Error("Invalid export settings.");
-    const times = timing(setup.horizon, duration);
+    const times = timing(setup.horizon, limit, setup.pace, withSound), duration = times.duration;
     let audio, stream, recorder, raf, watchdog, hidden;
     const chunks = [];
     try {
@@ -98,7 +107,7 @@ const RhoVideo = (() => {
       }
       const run = RewardLab.create(config);
       // Yield during preparation so Cancel still works for long runs.
-      while (run.step < setup.horizon) {
+      while (run.step < times.steps) {
         signal.throwIfAborted();
         RewardLab.step(run);
         if (run.step % 10 === 0) await new Promise(resolve => setTimeout(resolve, 0));
@@ -106,7 +115,7 @@ const RhoVideo = (() => {
       signal.throwIfAborted();
       if (document.hidden) throw Error("Keep this tab visible while exporting.");
       canvas.width = width; canvas.height = height;
-      draw(canvas, run, setup, palette, 0, duration, withSound);
+      draw(canvas, run, setup, palette, 0, times, withSound);
       stream = canvas.captureStream(fps);
       let destination, gain;
       if (audio) {
@@ -133,10 +142,9 @@ const RhoVideo = (() => {
       });
       const start = (audio ? audio.currentTime : performance.now() / 1000) + .1;
       if (audio) {
-        const rate = RhoAudio.slot * 21 / times.scan;
         for (let step = 1; step <= run.step; step++) {
           RhoAudio.schedule(audio, run.history[step].methods[setup.focus].p,
-            start + 1 + (step - 1) * times.interval + times.transition, gain, rate);
+            start + (step - 1) * times.interval + 2 * times.phase + times.lead, gain, times.rate);
         }
       }
       await Promise.race([stopped.then(() => { throw Error("Video encoding stopped early."); }), new Promise((resolve, reject) => {
@@ -149,7 +157,7 @@ const RhoVideo = (() => {
           try {
           if (signal.aborted) { abort(); return; }
           const elapsed = Math.max(0, (audio ? audio.currentTime : performance.now() / 1000) - start);
-          draw(canvas, run, setup, palette, elapsed, duration, withSound);
+          draw(canvas, run, setup, palette, elapsed, times, withSound);
           onProgress(Math.min(1, elapsed / duration));
           if (elapsed >= duration) { signal.removeEventListener("abort", abort); resolve(); }
           else raf = requestAnimationFrame(tick);
