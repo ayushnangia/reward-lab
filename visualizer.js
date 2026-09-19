@@ -580,7 +580,6 @@
     return `<svg class="reward-plot" viewBox="0 0 338 240" role="img" aria-label="${names[id]} outcome probabilities, zero to one hundred percent"><text x="4" y="17">Probability</text>${[0, 0.5, 1].map((v) => `<path class="gridline" d="M32 ${plotY(v)}H328"/><text x="2" y="${plotY(v) + 3}">${100 * v}%</text>`).join("")}${sim.base.map((p, i) => `<rect class="initial-bar" x="${plotX(i) - 6}" y="${plotY(p)}" width="12" height="${p * 170}"/><rect class="bar" data-bin="${i}" x="${plotX(i) - 4}" y="${plotY(p)}" width="8" height="${p * 170}"><title></title></rect>`).join("")}<line class="sound-cursor" y1="28" y2="203" style="display:none" aria-hidden="true"/><path class="axisline" d="M32 202H328"/>${[0, 10, 20].map((i) => `<text text-anchor="middle" x="${plotX(i)}" y="218">${i / 20}</text>`).join("")}<text text-anchor="middle" x="180" y="237">Original reward →</text></svg>`;
   }
   function buildCards() {
-    $("comparison").dataset.count = Math.min(3, selected.length);
     chartPage = Math.floor(selected.indexOf(focus) / 3);
     $("comparison").innerHTML = selected
       .map(
@@ -622,6 +621,7 @@
   }
   function showChartPage() {
     const start = chartPage * 3;
+    $("comparison").dataset.count = Math.min(3, selected.length - start);
     document.querySelectorAll(".algorithm-card").forEach((card, i) => {
       card.hidden = i < start || i >= start + 3;
     });
@@ -1378,7 +1378,7 @@
     if (videoController) { videoController.abort(); return; }
     const supported = RhoVideo.format() && typeof HTMLCanvasElement.prototype.captureStream === "function";
     $("video-start").disabled = !supported;
-    $("video-description").textContent = `Record the live charts from update ${shown}. Current sound: ${sounding ? names[focus] : "off"}. Use the website's Play, Listen, policy, speed, and volume controls while recording. Click Stop recording when finished.`;
+    $("video-description").textContent = `Record ${selected.slice(chartPage * 3, chartPage * 3 + 3).map(id => names[id]).join(", ")} from update ${shown}. Chart page ${chartPage + 1} of ${Math.ceil(selected.length / 3)}; switching pages is captured too. Current sound: ${sounding ? names[focus] : "off"}. Use the website's Play, Listen, policy, speed, and volume controls while recording. Click Stop recording when finished.`;
     $("video-format").textContent = supported ? `1080p · up to 60 fps · ${RhoVideo.format()[1].toUpperCase()}` : "Video recording is unavailable in this browser.";
     if (!videoURL) $("video-status").textContent = "Keep this tab visible. Sound follows the website's Sound on/off setting.";
     videoDialog.showModal();

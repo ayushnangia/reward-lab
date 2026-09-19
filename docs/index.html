@@ -31,7 +31,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="assets/favicon.svg?v=rho" type="image/svg+xml" />
     <link rel="stylesheet" href="assets/katex/katex.min.css?v=50d9c78e03" />
-    <link rel="stylesheet" href="rho.css?v=61edcc6b01" />
+    <link rel="stylesheet" href="rho.css?v=cab89b5754" />
     <script src="assets/katex/katex.min.js?v=10a91b479c" defer></script>
     <script src="assets/katex/contrib/auto-render.min.js?v=e5372d199b" defer></script>
     <script src="core.js?v=5cbc95c785" defer></script>
@@ -40,7 +40,7 @@
     <script src="algorithms.js?v=6b9861b472" defer></script>
     <script src="audio.js?v=0a9255cffa" defer></script>
     <script src="video.js?v=4112222194" defer></script>
-    <script src="visualizer.js?v=47117e40ba" defer></script>
+    <script src="visualizer.js?v=c70ceaf349" defer></script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
@@ -149,7 +149,10 @@
             <form id="settings" novalidate>
               <div class="advanced-heading">
                 <h2>Experiment settings</h2>
-                <button type="button" id="close-advanced">Close</button>
+                <div class="advanced-actions">
+                  <button type="submit" class="primary">Apply &amp; reset</button>
+                  <button type="button" id="close-advanced">Cancel</button>
+                </div>
               </div>
               <fieldset class="methods-field">
                 <legend>Compare algorithms</legend>
@@ -299,8 +302,7 @@
               </details>
               <p id="settings-error" role="alert" hidden></p>
               <div class="form-actions">
-                <button type="submit" class="primary">Apply & reset</button
-                ><button type="button" id="defaults">Defaults</button
+                <button type="button" id="defaults">Defaults</button
                 ><span>Changes start a new run.</span>
               </div>
             </form>

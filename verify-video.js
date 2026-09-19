@@ -26,3 +26,16 @@ assert.equal(JSON.stringify(run),before);
 assert.equal(V.format({isTypeSupported:()=>false}),undefined);
 assert.equal(V.format({isTypeSupported:x=>x.startsWith('video/webm')})[1],'webm');
 console.log('PASS: live update position, selected policy, speed, sound state and chart data; recording does not mutate simulation.');
+
+// Every selectable algorithm must render on full and partial chart pages.
+for (let start=0; start<RewardLab.methods.length; start+=3) {
+  const methods=RewardLab.methods.slice(start,start+3);
+  for (const focus of methods) {
+    labels=[]; bars=[];
+    V.draw(canvas,{...state,methods,focus,sounding:true},{});
+    for(const method of methods) assert(labels.includes(LabContent.names[method]));
+    assert(labels.some(s=>s.startsWith(LabContent.names[focus]+' sound')));
+    assert(bars.every(rect=>rect.every(Number.isFinite)));
+  }
+}
+console.log('PASS: all ten algorithms, every focus, and partial chart-page exports.');

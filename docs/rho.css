@@ -308,6 +308,13 @@ h1 {
   overscroll-behavior: contain;
 }
 .advanced-heading {
+  position: sticky;
+  top: -1px;
+  z-index: 1;
+  background: var(--surface);
+  padding: 8px 0;
+  gap: 12px;
+  flex-wrap: wrap;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -316,10 +323,7 @@ h1 {
 .advanced-heading h2 {
   font: 24px var(--serif);
 }
-.advanced-heading button {
-  border: 0;
-  background: none;
-}
+.advanced-actions { display: flex; gap: 8px; }
 .methods-field {
   border: 0;
   padding: 0;
