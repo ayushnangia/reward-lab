@@ -155,6 +155,7 @@
                   <button type="button" id="close-advanced">Cancel</button>
                 </div>
               </div>
+              <p class="settings-help">Choose a preset or enter a value.</p>
               <fieldset class="methods-field">
                 <legend>Compare algorithms</legend>
                 <div id="method-options"></div>
@@ -162,22 +163,64 @@
               <div class="settings-grid">
                 <label>Reward map<select id="transform"></select></label>
                 <label>Judge<select id="judge"></select></label>
-                <label
-                  >Samples per update<select id="n">
-                    <option>8</option>
-                    <option selected>32</option>
-                    <option>64</option>
-                  </select></label
-                >
-                <label
-                  >Learning rate<input
-                    id="lr"
-                    type="number"
-                    min="0.001"
-                    max="2"
-                    step="0.01"
-                    value="0.5"
-                /></label>
+                <div class="number-setting">
+                  <label
+                    >Samples per update<input
+                      id="n"
+                      type="number"
+                      min="2"
+                      max="256"
+                      step="1"
+                      value="32"
+                      data-presets="8,32,128"
+                      aria-describedby="n-range"
+                  /></label>
+                  <span class="setting-range" id="n-range">2–256 samples</span>
+                </div>
+                <div class="number-setting">
+                  <label
+                    >Updates per run<input
+                      id="horizon"
+                      type="number"
+                      min="1"
+                      max="2000"
+                      step="1"
+                      value="100"
+                      data-presets="100,500,2000"
+                      aria-describedby="horizon-range"
+                  /></label>
+                  <span class="setting-range" id="horizon-range"
+                    >1–2,000 updates</span
+                  >
+                </div>
+                <div class="number-setting">
+                  <label
+                    >Learning rate<input
+                      id="lr"
+                      type="number"
+                      min="0.001"
+                      max="2"
+                      step="any"
+                      value="0.5"
+                      data-presets="0.05,0.15,0.5"
+                  /></label>
+                </div>
+                <div class="number-setting">
+                  <label
+                    >Best-of-k<input
+                      id="k"
+                      type="number"
+                      min="1"
+                      max="256"
+                      step="1"
+                      value="4"
+                      data-presets="1,4,16"
+                      aria-describedby="k-range"
+                  /></label>
+                  <span class="setting-range" id="k-range"
+                    >PKPO and evaluation. k ≤ sample count.</span
+                  >
+                </div>
                 <label
                   >Seed<input
                     id="seed"
@@ -187,20 +230,6 @@
                     step="1"
                     value="42"
                 /></label>
-                <label
-                  >Updates per run<select id="horizon">
-                    <option>25</option>
-                    <option selected>100</option>
-                    <option>300</option>
-                  </select></label
-                >
-                <label
-                  >k · PKPO and evaluation<select id="k">
-                    <option>1</option>
-                    <option selected>4</option>
-                    <option>8</option>
-                  </select></label
-                >
               </div>
               <div id="piecewise-settings" class="settings-grid" hidden>
                 <label

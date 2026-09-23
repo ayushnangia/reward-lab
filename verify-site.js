@@ -86,7 +86,11 @@ for (const invalid of [
   { bulkScale: 0 },
   { jump: -1 },
   { custom: "-1,0,1", preset: "custom" },
-  { n: 65 },
+  { n: 257 },
+  { n: 1 },
+  { n: 7.5 },
+  { k: 257 },
+  { evalK: 257 },
   { unit: "yes" },
   { floor: Infinity },
   ...[
@@ -102,6 +106,26 @@ for (const invalid of [
   ].map((customWeights) => ({ customWeights })),
 ])
   assert.throws(() => V.validate(invalid));
+// Custom group sizes and both extremes of the expanded k range stay finite.
+for (const [n, k] of [
+  [73, 12],
+  [256, 128],
+  [256, 256],
+]) {
+  const sim = R.create(V.validate({ n, k, evalK: k }));
+  for (let i = 0; i < 3; i++) R.step(sim);
+  for (const method of R.methods) {
+    assert.equal(sim.last[method].ids.length, n);
+    assert(sim.last[method].adv.every(Number.isFinite));
+    const { p, metrics } = sim.history.at(-1).methods[method];
+    assert(p.every(Number.isFinite));
+    assert(Object.values(metrics).every(Number.isFinite));
+    close(
+      p.reduce((a, b) => a + b, 0),
+      1,
+    );
+  }
+}
 // Editor weights retain exact support and rare tails, including through shared JSON.
 for (const preset of Object.keys(R.presets).filter((p) => p !== "custom")) {
   const original = R.initial(preset),

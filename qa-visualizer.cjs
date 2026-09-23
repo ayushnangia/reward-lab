@@ -212,7 +212,7 @@ const fs = require("node:fs");
         return {
           expected: audible.map(({ value, i }) => [
             130.81278265 * 2 ** (3 * Math.sqrt(value)),
-            0.02 + 0.14 * Math.sqrt(value),
+            3 * (0.02 + 0.14 * Math.sqrt(value)),
           ]),
           actual: audioTrace.tones
             .slice(-audible.length)
@@ -360,6 +360,99 @@ const fs = require("node:fs");
     assert(await page.locator("#settings-error").isVisible());
     assert.equal(await page.evaluate(() => Rho.state.shown), 1);
     await page.locator("#close-advanced").click();
+    // Presets edit the draft; arbitrary values survive applying, replay and sharing.
+    {
+      await page.locator("#advanced > summary").click();
+      await page.locator('[data-field="n"][data-value="128"]').click();
+      assert.equal(await page.locator("#n").inputValue(), "128");
+      assert.equal(await page.evaluate(() => Rho.state.cfg.n), 32);
+      await page.locator('[data-field="horizon"][data-value="500"]').focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await page.locator("#horizon").inputValue(), "500");
+      assert.equal(await page.evaluate(() => Rho.state.horizon), 100);
+      for (const [id, value] of Object.entries({
+        n: "73",
+        k: "12",
+        lr: "0.037",
+        horizon: "7",
+      }))
+        await page.locator("#" + id).fill(value);
+      assert.equal(
+        await page.locator('.number-presets [aria-pressed="true"]').count(),
+        0,
+      );
+      await page.locator("#settings button[type=submit]").click();
+      assert.equal(await page.evaluate(() => Rho.state.cfg.n), 73);
+      assert.equal(await page.evaluate(() => Rho.state.cfg.k), 12);
+      assert.equal(await page.evaluate(() => Rho.state.cfg.evalK), 12);
+      assert.equal(await page.evaluate(() => Rho.state.cfg.lr), 0.037);
+      assert.equal(await page.locator("#run-end").textContent(), "7");
+      await page.evaluate(() => {
+        for (let i = 0; i < 10; i++) document.querySelector("#step").click();
+      });
+      assert.equal(await page.evaluate(() => Rho.state.sim.step), 7);
+      assert(await page.locator("#step").isDisabled());
+      assert.equal(
+        await page.evaluate(() => Rho.state.batches[7].tailrl.ids.length),
+        73,
+      );
+      await page.locator("#previous").click();
+      await page.locator("#step").click();
+      assert.equal(await page.evaluate(() => Rho.state.sim.history.length), 8);
+      await page.locator("#share").click();
+      const customLink = await page.evaluate(() =>
+        navigator.clipboard.readText(),
+      );
+      const customPage = await browser.newPage();
+      await customPage.goto(customLink);
+      await customPage.waitForFunction(() => window.Rho);
+      assert.deepEqual(
+        await customPage.evaluate(() => Rho.state.cfg),
+        await page.evaluate(() => Rho.state.cfg),
+      );
+      assert.equal(await customPage.evaluate(() => Rho.state.horizon), 7);
+      assert.equal(await customPage.locator("#horizon").inputValue(), "7");
+      const invalidLink = new URL(customLink);
+      const invalidSetup = JSON.parse(invalidLink.searchParams.get("setup"));
+      invalidSetup.horizon = 2001;
+      invalidLink.searchParams.set("setup", JSON.stringify(invalidSetup));
+      await customPage.goto(invalidLink.href);
+      await customPage.waitForFunction(() => window.Rho);
+      assert.match(
+        await customPage.locator("#status").textContent(),
+        /Could not load this setup/,
+      );
+      assert.equal(await customPage.evaluate(() => Rho.state.horizon), 100);
+      await customPage.close();
+      await page.locator("#advanced > summary").click();
+      for (const [id, value] of [
+        ["n", ""],
+        ["n", "1"],
+        ["n", "257"],
+        ["n", "3.5"],
+        ["horizon", ""],
+        ["horizon", "0"],
+        ["horizon", "2001"],
+        ["horizon", "1.5"],
+        ["k", "74"],
+      ]) {
+        const field = page.locator("#" + id),
+          previous = await field.inputValue();
+        await field.fill(value);
+        await page.locator("#settings button[type=submit]").click();
+        assert(await page.locator("#settings-error").isVisible());
+        assert.equal(await page.evaluate(() => Rho.state.sim.step), 7);
+        await field.fill(previous);
+      }
+      await page.locator('[data-field="horizon"][data-value="2000"]').click();
+      await page.locator("#settings button[type=submit]").click();
+      assert.equal(await page.evaluate(() => Rho.state.horizon), 2000);
+      await page.locator("#advanced > summary").click();
+      await page.locator("#defaults").click();
+      assert.equal(await page.evaluate(() => Rho.state.horizon), 100);
+      assert.equal(await page.locator("#n").inputValue(), "32");
+      await page.locator("#step").click();
+    }
     await page.locator("#preset").selectOption("custom");
     assert(await page.locator("#distribution-editor").isVisible());
     assert.equal(await page.locator("#advanced").getAttribute("open"), null);
@@ -443,28 +536,14 @@ const fs = require("node:fs");
     for (const cb of await page.locator("[name=method]").all())
       await cb.check();
     await page.locator("#speed").fill("4");
-    await page.locator("#horizon").selectOption("25");
+    await page.locator("#horizon").fill("25");
     await page.locator("#settings button[type=submit]").click();
     assert.equal(await page.locator(".algorithm-card").count(), 10);
-    while (await page.locator("#previous-charts").isEnabled())
-      await page.locator("#previous-charts").click();
-    const allCharts = [];
-    do {
-      allCharts.push(
-        ...(await page
-          .locator(".algorithm-card:visible")
-          .evaluateAll((cards) => cards.map((card) => card.dataset.method))),
-      );
-      assert((await page.locator(".algorithm-card:visible").count()) <= 3);
-      if (await page.locator("#next-charts").isDisabled()) break;
-      await page.locator("#next-charts").click();
-    } while (true);
+    const allCharts = await page
+      .locator(".algorithm-card:visible")
+      .evaluateAll((cards) => cards.map((card) => card.dataset.method));
     assert.deepEqual(allCharts, await page.evaluate(() => Rho.state.methods));
     assert.equal(await page.evaluate(() => Rho.state.sim.step), 0);
-    assert.equal(
-      await page.locator("#chart-page").textContent(),
-      "10–10 of 10",
-    );
     await page.locator("#speed").fill("0");
     await page.locator("#play").click();
     const firstRunningFrame = await page.evaluate(
@@ -1052,7 +1131,7 @@ const fs = require("node:fs");
       "Tall bars must be clearly stronger than rare bars in rendered audio",
     );
     assert(
-      peak(rendered.channels[1]) > 0.01 && peak(rendered.channels[1]) < 0.2,
+      peak(rendered.channels[1]) > 0.03 && peak(rendered.channels[1]) < 0.6,
     );
     assert(
       peak(
@@ -1143,16 +1222,18 @@ const fs = require("node:fs");
           for (const sound of [true, false]) {
             if ((await compact.evaluate(() => Rho.state.sound)) !== sound)
               await compact.locator("#sound").click();
-            while (await compact.locator("#previous-charts").isEnabled())
-              await compact.locator("#previous-charts").click();
-            do {
+            {
+              assert.equal(
+                await compact.locator(".algorithm-card:visible").count(),
+                count,
+              );
               assert(
                 await compact.evaluate(
                   () =>
-                    document
-                      .querySelector("#comparison")
-                      .getBoundingClientRect().height <=
-                      innerHeight - 80 &&
+                    [...document.querySelectorAll(".algorithm-card")].every(
+                      (card) =>
+                        card.getBoundingClientRect().height <= innerHeight - 80,
+                    ) &&
                     document.documentElement.scrollWidth <= innerWidth &&
                     getComputedStyle(document.querySelector("h1")).fontSize ===
                       "44px" &&
@@ -1167,9 +1248,7 @@ const fs = require("node:fs");
                 ),
                 `Chart grid or restored page layout: ${width}×${height}, ${count} methods, ${theme}, sound ${sound}`,
               );
-              if (await compact.locator("#next-charts").isDisabled()) break;
-              await compact.locator("#next-charts").click();
-            } while (true);
+            }
           }
         }
         assert.deepEqual(
@@ -1191,7 +1270,7 @@ const fs = require("node:fs");
     );
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: two-page navigation; real probability rendering; replay; deterministic histogram sound, silent gaps, native audio rendering, Start/Current comparison and synchronized cursor; system/light/dark themes, persistence, contrast and themed PNG export; clipping; LaTeX, local math fonts and accessible MathML; setup links; PNG export; validation; visual distribution editing with mouse, keyboard and touch; rare tails, paste import, support floor and custom sharing; all ten methods; bounded playback; speed changes without resetting state or pitch; paged chart grids that fit laptop screens, with full-size page typography and controls in both themes; phone/tablet/desktop layouts; beginner reading path and all ten worked calculations.",
+      "PASS: two-page navigation; real probability rendering; replay; deterministic histogram sound, silent gaps, native audio rendering, Start/Current comparison and synchronized cursor; system/light/dark themes, persistence, contrast and themed PNG export; clipping; LaTeX, local math fonts and accessible MathML; custom settings and preset buttons; setup links; PNG export; validation; visual distribution editing with mouse, keyboard and touch; rare tails, paste import, support floor and custom sharing; all ten methods; bounded playback; speed changes without resetting state or pitch; expanding chart grids with readable laptop-sized cards, with full-size page typography and controls in both themes; phone/tablet/desktop layouts; beginner reading path and all ten worked calculations.",
     );
   } finally {
     await browser.close();

@@ -22,9 +22,9 @@ const LabConfig = (() => {
     judge: ["clean", "noise", "falsepositive"],
   };
   const numbers = {
-    n: [2, 64, true],
-    k: [1, 64, true],
-    evalK: [1, 128, true],
+    n: [2, 256, true],
+    k: [1, 256, true],
+    evalK: [1, 256, true],
     lr: [0.001, 2],
     seed: [0, 4294967295, true],
     lambda: [-2, 3],
@@ -55,7 +55,8 @@ const LabConfig = (() => {
         (integer && !Number.isInteger(cfg[key]))
       )
         throw Error(
-          key +
+          ({ n: "Samples per update", k: "k", evalK: "Evaluation k" }[key] ||
+            key) +
             " must be " +
             (integer ? "an integer" : "a number") +
             " between " +

@@ -324,6 +324,11 @@ h1 {
   font: 24px var(--serif);
 }
 .advanced-actions { display: flex; gap: 8px; }
+.settings-help {
+  margin: -8px 0 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .methods-field {
   border: 0;
   padding: 0;
@@ -357,6 +362,31 @@ input[type="checkbox"] {
 .settings-grid input {
   min-width: 0;
   width: 100%;
+}
+.number-setting {
+  min-width: 0;
+}
+.number-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 6px;
+}
+.number-presets button {
+  min-height: 32px;
+  padding: 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.number-presets button[aria-pressed="true"] {
+  border-color: var(--hover-border);
+  background: var(--soft);
+}
+.setting-range {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
 }
 #piecewise-settings,
 #power-settings {

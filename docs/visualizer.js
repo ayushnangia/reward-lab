@@ -135,16 +135,16 @@
       new Set(methods).size !== methods.length
     )
       throw Error("Choose at least one valid algorithm, with no duplicates.");
-    if (
-      !playbackPaces.includes(data.pace ?? 1200) ||
-      ![25, 100, 300].includes(data.horizon ?? 100)
-    )
+    if (!playbackPaces.includes(data.pace ?? 1200))
       throw Error("Invalid playback settings.");
+    const updates = data.horizon ?? 100;
+    if (!Number.isInteger(updates) || updates < 1 || updates > 2000)
+      throw Error("Updates per run must be a whole number from 1 to 2,000.");
     return {
       cfg: config,
       methods,
       pace: data.pace ?? 1200,
-      horizon: data.horizon ?? 100,
+      horizon: updates,
       focus: methods.includes(data.focus) ? data.focus : methods[0],
     };
   }
@@ -177,19 +177,44 @@
     "criticRate",
     "floor",
   ];
+  for (const input of document.querySelectorAll("[data-presets]")) {
+    const presets = document.createElement("div");
+    presets.className = "number-presets";
+    presets.setAttribute("role", "group");
+    const label = input.labels[0].textContent.trim();
+    presets.setAttribute("aria-label", label + " presets");
+    for (const value of input.dataset.presets.split(",")) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = value;
+      button.dataset.field = input.id;
+      button.dataset.value = value;
+      button.setAttribute("aria-label", label + ": " + value);
+      button.onclick = () => {
+        input.value = value;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      presets.append(button);
+    }
+    input.closest("label").after(presets);
+  }
+  function updateNumberPresets() {
+    document.querySelectorAll(".number-presets button").forEach((button) => {
+      const value = $(button.dataset.field).value;
+      button.setAttribute(
+        "aria-pressed",
+        String(value !== "" && Number(value) === Number(button.dataset.value)),
+      );
+    });
+  }
   function writeForm() {
     $("preset").value = cfg.preset;
     for (const key of [...numericFields, "transform", "judge"]) {
-      const el = $(key);
-      if (
-        el.tagName === "SELECT" &&
-        ![...el.options].some((o) => o.value === String(cfg[key]))
-      )
-        el.add(new Option(String(cfg[key]), String(cfg[key])));
-      el.value = cfg[key];
+      $(key).value = cfg[key];
     }
     updateSpeed();
     $("horizon").value = horizon;
+    updateNumberPresets();
     document.querySelectorAll('[name="method"]').forEach((el) => {
       el.checked = selected.includes(el.value);
     });
@@ -323,7 +348,10 @@
       $("settings-error").scrollIntoView({ block: "nearest" });
     }
   });
-  $("settings").addEventListener("input", previewMap);
+  $("settings").addEventListener("input", () => {
+    updateNumberPresets();
+    previewMap();
+  });
   $("close-advanced").onclick = () => {
     writeForm();
     $("advanced").open = false;
